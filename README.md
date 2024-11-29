@@ -28,3 +28,9 @@ It is necessary to optimize hyperparameters of kernel.
 In this example, L-BFGS is used because it is hard to get appropriate hessian right away.
 
 L-BFGS makes it possible to optimize the parameter by approximating hessian matrix.
+
+## SGPR study
+
+Just follow up Martin Krasser.
+
+<img src="sgpr_example.gif"/>
