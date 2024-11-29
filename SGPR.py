@@ -170,7 +170,9 @@ def generate_animation(theta_steps, X_m_steps, X_test, f_true, X, y, sigma_y, ph
 
     result = animation.FuncAnimation(fig, plot_step, frames=len(theta_steps), interval=interval, repeat=False)
 
-    plt.show()
+    # plt.show()
+    
+    result.save('sgpr_example.gif',writer ='pillow', fps = 30)
 
     # Prevent output of last frame as additional plot
     # plt.close()
