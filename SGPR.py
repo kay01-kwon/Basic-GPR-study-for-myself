@@ -6,8 +6,13 @@ import matplotlib.pyplot as plt
 from jax import random, jit, value_and_grad
 from jax.config import config
 from scipy.optimize import minimize
+from matplotlib import animation
+from IPython.display import HTML
+
 
 config.update("jax_enable_x64", True)
+
+
 
 def func(x):
     """Latent function"""
@@ -130,6 +135,48 @@ def q(X_test, theta, X_m, mu_m, A_m, K_mm_inv):
 
     return f_q, f_q_cov
 
+def generate_animation(theta_steps, X_m_steps, X_test, f_true, X, y, sigma_y, phi_opt, q, interval=100):
+    fig, ax = plt.subplots()
+
+    def plot_step(i):
+        theta = theta_steps[i]
+        X_m = X_m_steps[i]
+
+        mu_m, A_m, K_mm_inv = phi_opt(theta, X_m, X, y, sigma_y)
+        f_test, f_test_cov = q(X_test, theta, X_m, mu_m, A_m, K_mm_inv)
+        f_test_var = np.diag(f_test_cov)
+        f_test_std = np.sqrt(f_test_var)
+        
+        ax.clear()
+        
+        line_func, = ax.plot(X_test, f_true, label='Latent function', c='k', lw=0.5)
+        line_pred, = ax.plot([], [], label='Prediction', c='b')       
+        pnts_ind = ax.scatter(X_m, mu_m, label='Inducing variables', c='m')
+        line_pred.set_data(X_test, f_test.ravel())
+        area_pred = ax.fill_between(X_test.ravel(),
+                                    f_test.ravel() + 1.96 * f_test_std,
+                                    f_test.ravel() - 1.96 * f_test_std,
+                                    color='r', alpha=0.1,
+                                    label='Epistemic uncertainty')
+        
+        ax.set_title('Optimization of a sparse Gaussian process')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_xlim(-1.5, 1.5)
+        ax.set_ylim(-3, 3.5)
+        ax.legend(loc='upper right')
+
+        return line_func, pnts_ind, line_pred, area_pred
+
+    result = animation.FuncAnimation(fig, plot_step, frames=len(theta_steps), interval=interval, repeat=False)
+
+    plt.show()
+
+    # Prevent output of last frame as additional plot
+    # plt.close()
+
+    return result
+
 # Number of training data
 n = 1000
 
@@ -153,39 +200,64 @@ X_m = jnp.linspace(-0.4, 0.4, m).reshape(-1,1)
 
 print(nlb_fn(X, y, sigma_y))
 
+theta_0 = jnp.array([1.0, 1.0])
+theta_steps = [theta_0]
+
+X_m_0 = X_m
+X_m_steps = [X_m_0]
+
+def callback(xk):
+    theta, X_m = unpack_params(xk)
+    theta_steps.append(theta)
+    X_m_steps.append(X_m)
+    return False
+
+
 # # Run optimization
+# res = minimize(fun=nlb_fn(X, y, sigma_y),
+#                x0=pack_params(jnp.array([1.0, 1.0]), X_m),
+#                method='L-BFGS-B',
+#                jac=True,
+#                callback=callback)
+
 res = minimize(fun=nlb_fn(X, y, sigma_y),
-               x0=pack_params(jnp.array([1.0, 1.0]), X_m),
+               x0=pack_params(theta_0, X_m_0),
                method='L-BFGS-B',
-               jac=True)
+               jac=True,
+               callback=callback)
+
+anim = generate_animation(theta_steps, X_m_steps, X_test, f_true, X, y, sigma_y, phi_opt, q)
 
 
-# Optimized kernel parameters and inducing points
-theta_opt, X_m_opt = unpack_params(res.x)
+# Show animation widget
+HTML(anim.to_jshtml())
 
-mu_m_opt, A_m_opt, K_mm_inv = phi_opt(theta_opt, X_m_opt, X, y, sigma_y)
+# # Optimized kernel parameters and inducing points
+# theta_opt, X_m_opt = unpack_params(res.x)
+#
+# mu_m_opt, A_m_opt, K_mm_inv = phi_opt(theta_opt, X_m_opt, X, y, sigma_y)
+#
+# f_test, f_test_cov = q(X_test, theta_opt, X_m_opt, mu_m_opt, A_m_opt, K_mm_inv)
+# f_test_var = np.diag(f_test_cov)
+# f_test_std = np.sqrt(f_test_var)
 
-f_test, f_test_cov = q(X_test, theta_opt, X_m_opt, mu_m_opt, A_m_opt, K_mm_inv)
-f_test_var = np.diag(f_test_cov)
-f_test_std = np.sqrt(f_test_var)
 
-
-plt.scatter(X, y, label='Training examples', marker='x', color='blue', alpha=0.1)
-plt.plot(X_test, f_true, label='Latent function', c='k', lw=0.5)
-plt.plot(X_test, f_test, label='Prediction', c='b')
-plt.scatter(X_m_opt, mu_m_opt, label='Inducing variables', c='m')
-plt.fill_between(X_test.ravel(),
-                 f_test.ravel() + 1.96*f_test_std,
-                 f_test.ravel() - 1.96*f_test_std,
-                 label='Epistemic uncertainty',
-                 color='r',
-                 alpha=0.1)
-
-plt.title('Approximate posterior')
-plt.xlabel('x')
-plt.ylabel('y')
-plt.xlim(-1.5, 1.5)
-plt.ylim(None, 3.0)
-plt.legend()
-
-plt.show()
+# plt.scatter(X, y, label='Training examples', marker='x', color='blue', alpha=0.1)
+# plt.plot(X_test, f_true, label='Latent function', c='k', lw=0.5)
+# plt.plot(X_test, f_test, label='Prediction', c='b')
+# plt.scatter(X_m_opt, mu_m_opt, label='Inducing variables', c='m')
+# plt.fill_between(X_test.ravel(),
+#                  f_test.ravel() + 1.96*f_test_std,
+#                  f_test.ravel() - 1.96*f_test_std,
+#                  label='Epistemic uncertainty',
+#                  color='r',
+#                  alpha=0.1)
+#
+# plt.title('Approximate posterior')
+# plt.xlabel('x')
+# plt.ylabel('y')
+# plt.xlim(-1.5, 1.5)
+# plt.ylim(None, 3.0)
+# plt.legend()
+#
+# plt.show()
