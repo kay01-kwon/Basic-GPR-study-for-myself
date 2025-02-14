@@ -207,5 +207,5 @@ def main_high_dim():
 if __name__ == '__main__':
     # main_Prior()
     # main_Posterior()
-    # main_Posterior_from_noisy_train_data()
-    main_high_dim()
+    main_Posterior_from_noisy_train_data()
+    # main_high_dim()
