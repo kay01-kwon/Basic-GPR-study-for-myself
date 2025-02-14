@@ -1,10 +1,12 @@
 import numpy as np
+from jax.lib import xla_bridge
 import jax.numpy as jnp
 from jax.config import config
 import jax.scipy as jsp
 import matplotlib.pyplot as plt
 
-config.update("jax_enable_x64", True)
+# print(xla_bridge.get_backend().platform)
+# config.update("jax_enable_x64", True)
 
 
 class GprJac():
@@ -139,10 +141,14 @@ class GprJac():
 if __name__ == '__main__':
 
     X = jnp.arange(-5, 5, 0.1).reshape(-1, 1)
-    Y = jnp.cos(X)
+    Y = jnp.sin(X)
+    dY = jnp.cos(X)
+    # Y = jnp.exp(X)
 
-    X_train = jnp.array([-4, -3, -2, -1, 0, 1, 2, 3]).reshape(-1, 1)
-    Y_train = jnp.cos(X_train)
+    # X_train = jnp.array([-4, -3, -2, -1, 0, 1, 2, 3, 4]).reshape(-1, 1)
+    X_train = jnp.arange(-5, 5, 0.5).reshape(-1, 1)
+    Y_train = jnp.sin(X_train)
+    # Y_train = jnp.exp(X_train)
 
     hyper_param = jnp.array([1.0, 1.0, 0.0])
 
@@ -150,7 +156,16 @@ if __name__ == '__main__':
 
     mu_new, cov_new, dmu_new = GP.posterior(X)
 
-    plt.plot(X, mu_new)
-    plt.plot(X, dmu_new)
+    plt.subplot(2,1,1)
+
+    plt.plot(X, mu_new, color='violet')
+    plt.plot(X, Y, linestyle='--', color='r')
+    plt.title('f(x) = sin(x)')
+    plt.grid('True')
+
+    plt.subplot(2,1,2)
+    plt.plot(X, dmu_new, color='violet')
+    plt.plot(X, dY, linestyle='--', color='r')
+    plt.title('dfdx = cos(x)')
     plt.grid('True')
     plt.show()
